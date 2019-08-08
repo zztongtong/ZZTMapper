@@ -1,4 +1,6 @@
 ﻿using System;
+using ZZT.Mapper.Attr;
+using System.Linq;
 
 namespace ZZT.Mapper
 {
@@ -18,9 +20,30 @@ namespace ZZT.Mapper
         {
             var desType = typeof(TDestion);
             var sourceType = typeof(TSource);
-            TDestion desIns = (TDestion)Activator.CreateInstance(typeof(TDestion));
+
+            TDestion desIns = default(TDestion);
+            var automapList= desType.GetCustomAttributes(false).Where(e => e.GetType() == typeof(AutoMapAttribute)).Where(x=>((AutoMapAttribute)x).Source==typeof(TSource)).ToList();
+            if (automapList == null || automapList.Count() == 0)
+            {
+                //TDestion没有指定来源于TSource的映射
+                return desIns;
+            }
+            
+           
             //获取TSource的成员
             var sourceProps = sourceType.GetProperties();
+            var destionProps = desType.GetProperties();
+            foreach(var desProp in destionProps)
+            {
+                var mapToOrFromSource = desProp.GetCustomAttributes(false).Where(e => e.GetType() == typeof(MapToOrFromPropertyAttribute)).Where(x => ((MapToOrFromPropertyAttribute)x).Source == sourceType).FirstOrDefault();
+                if (mapToOrFromSource!=null)
+                {
+                    var mapToOrFromSourceIns = (MapToOrFromPropertyAttribute)mapToOrFromSource;
+                    var propVal = sourceType.GetProperties(mapToOrFromSourceIns.PropName).GetValue(source, null);
+                    desProp.SetValue(desIns, propVal, null);
+                    //此属性有
+                }
+            }
             foreach (var prop in sourceProps)
             {
                 //获取目标对象此名称的字段
