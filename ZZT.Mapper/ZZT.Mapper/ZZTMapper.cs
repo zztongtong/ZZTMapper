@@ -6,6 +6,7 @@ using System.Linq;
 using System.Collections.Concurrent;
 using ZZT.Mapper.Base;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace ZZT.Mapper
 {
@@ -83,7 +84,7 @@ namespace ZZT.Mapper
 
         public static void CreateMap(Type tDestion,Type tSource)
         {
-            var sourceAutomap=(AutoMapAttribute) tDestion.GetCustomAttributes().Where(e => e.GetType() == tSource).FirstOrDefault();
+            var sourceAutomap=(AutoMapAttribute) tDestion.GetCustomAttributes().Where(e => e.GetType() == typeof(AutoMapAttribute)).FirstOrDefault();
             if (sourceAutomap == null)
             {
                 return;
@@ -145,14 +146,13 @@ namespace ZZT.Mapper
             foreach(var item in assemblies)
             {
                 var types = item.GetTypes().Where(e=>e.GetCustomAttributes().Where(x=>x.GetType()==typeof(AutoMapAttribute)).Count()>0);
-                foreach(var type in types)
-                {
+                Parallel.ForEach(types, (type) => {
                     var automaps = type.GetCustomAttributes().Where(e => e.GetType() == typeof(AutoMapAttribute));
-                    foreach(var automap in automaps)
-                    {
+                    Parallel.ForEach(automaps, (automap) => {
                         CreateMap(type, ((AutoMapAttribute)automap).Source);
-                    }
-                }
+                    });
+                });
+                
             }
         }
 
@@ -172,10 +172,10 @@ namespace ZZT.Mapper
             try
             {
                 List<PropPair> pps = LockDictionar[tp];
-                foreach (var item in pps)
-                {
+                Parallel.ForEach(pps, (item) => {
                     desType.GetProperty(item.DesPropName).SetValue(dins, sourceType.GetProperty(item.SourPropName).GetValue(obj));
-                }
+                });
+                
             }
             catch(Exception ex)
             {
