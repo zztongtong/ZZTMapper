@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace ZZT.Mapper.Attr
-{
+{ 
+    [AttributeUsage(AttributeTargets.Class,AllowMultiple =true,Inherited =false) ]
     public class AutoMapAttribute:Attribute
     {
         /// <summary>

@@ -4,6 +4,7 @@ using System.Text;
 
 namespace ZZT.Mapper.Attr
 {
+    [AttributeUsage(AttributeTargets.Field |AttributeTargets.Property,AllowMultiple =true,Inherited =false)]
     public class MapToOrFromPropertyAttribute:Attribute
     {
         /// <summary>

@@ -35,16 +35,28 @@ namespace ZZT.Mapper
         public static void CreateMap<TDestion,TSource>()
         {
             var sourceAutomap = (AutoMapAttribute)typeof(TDestion).GetCustomAttributes(false).Where(e => e.GetType() == typeof(AutoMapAttribute)).Where(x => ((AutoMapAttribute)x).Source == typeof(TSource)).FirstOrDefault();
-            if (sourceAutomap == null)
-            {
-                //如果TDestion没有指定TSource
-                return;
-            }
+            
             TypePair tp = CreateTypePair<TDestion, TSource>();
             List<PropPair> pp = new List<PropPair>(); 
             var desProps = tp.TDestion.GetProperties();
             var sourProps = tp.TSource.GetProperties();
-            
+
+            if (sourceAutomap == null)
+            {
+                //如果TDestion没有指定TSource
+                foreach (var prop in desProps)
+                {
+                    if (tp.TSource.GetProperty(prop.Name) != null)
+                    {
+                        var pPair = new PropPair { DesPropName = prop.Name, SourPropName = prop.Name };
+                        pp.Add(pPair);
+                    }
+                }
+                LockDictionar.GetOrAdd(tp, pp);
+                CreateMap<TSource, TDestion>();
+                return;
+            }
+
             foreach (var prop in desProps)
             {
                 var mapToOrFromSource = (MapToOrFromPropertyAttribute)prop.GetCustomAttributes(false).Where(e => e.GetType() == typeof(MapToOrFromPropertyAttribute)).Where(x => ((MapToOrFromPropertyAttribute)x).Source == tp.TSource).FirstOrDefault();
@@ -81,19 +93,35 @@ namespace ZZT.Mapper
                 LockDictionar.GetOrAdd(reverTP, reverPP);
             }
         }
-
+        /// <summary>
+        /// 创建tSource与tDestion之间的映射关系
+        /// </summary>
+        /// <param name="tDestion"></param>
+        /// <param name="tSource"></param>
         public static void CreateMap(Type tDestion,Type tSource)
         {
-            var sourceAutomap=(AutoMapAttribute) tDestion.GetCustomAttributes().Where(e => e.GetType() == typeof(AutoMapAttribute)).FirstOrDefault();
-            if (sourceAutomap == null)
-            {
-                return;
-            }
-
+            var sourceAutomap=(AutoMapAttribute) tDestion.GetCustomAttributes().Where(e => e.GetType() == typeof(AutoMapAttribute)).Where(x => ((AutoMapAttribute)x).Source == tSource).FirstOrDefault();
+            
             TypePair tp = new TypePair(tDestion, tSource);
             List<PropPair> pp = new List<PropPair>();
             var desProps = tp.TDestion.GetProperties();
             var sourProps = tp.TSource.GetProperties();
+
+            if (sourceAutomap == null)
+            {
+                //tDestion 与tSource之间不存在映射关系
+                foreach(var prop in desProps)
+                {
+                    if (tp.TSource.GetProperty(prop.Name) != null)
+                    {
+                        var pPair = new PropPair { DesPropName = prop.Name, SourPropName = prop.Name };
+                        pp.Add(pPair);
+                    }
+                }
+                LockDictionar.GetOrAdd(tp, pp);
+                CreateMap(tSource, tDestion);
+                return;
+            }
 
             foreach (var prop in desProps)
             {
@@ -145,6 +173,7 @@ namespace ZZT.Mapper
         {
             foreach(var item in assemblies)
             {
+                //获取带有AutoMap属性的类型
                 var types = item.GetTypes().Where(e=>e.GetCustomAttributes().Where(x=>x.GetType()==typeof(AutoMapAttribute)).Count()>0);
                 Parallel.ForEach(types, (type) => {
                     var automaps = type.GetCustomAttributes().Where(e => e.GetType() == typeof(AutoMapAttribute));
@@ -156,8 +185,9 @@ namespace ZZT.Mapper
             }
         }
 
+
         /// <summary>
-        /// 对象转换
+        /// 对象转换-两者有映射关系
         /// </summary>
         /// <typeparam name="TDestion"></typeparam>
         /// <typeparam name="TSource"></typeparam>
@@ -171,15 +201,29 @@ namespace ZZT.Mapper
             TypePair tp = new TypePair(desType, sourceType);
             try
             {
-                List<PropPair> pps = LockDictionar[tp];
-                Parallel.ForEach(pps, (item) => {
-                    desType.GetProperty(item.DesPropName).SetValue(dins, sourceType.GetProperty(item.SourPropName).GetValue(obj));
-                });
                 
+                if (!LockDictionar.ContainsKey(tp))
+                {
+                    //两者没有配置映射关系，则只映射类型且名称相同的字段
+                    PropertyInfo[] props= desType.GetProperties();
+                    Parallel.ForEach(props, (item) => {
+                        if(desType.GetProperty(item.Name).GetType()== sourceType.GetProperty(item.Name).GetType())
+                        {
+                            desType.GetProperty(item.Name).SetValue(dins, sourceType.GetProperty(item.Name).GetValue(obj));
+                        }
+                    });
+                }
+                else
+                {
+                    List<PropPair> pps = LockDictionar[tp];
+                    Parallel.ForEach(pps, (item) => {
+                        desType.GetProperty(item.DesPropName).SetValue(dins, sourceType.GetProperty(item.SourPropName).GetValue(obj));
+                    });
+                }
             }
             catch(Exception ex)
             {
-                throw new Exception(desType.Name + "与" + sourceType.Name + "没有相应的映射关系", ex);
+                throw new Exception(desType.Name + "与" + sourceType.Name + "映射失败", ex);
             }
             
             return dins;
