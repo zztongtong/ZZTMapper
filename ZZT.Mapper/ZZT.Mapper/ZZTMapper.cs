@@ -207,7 +207,9 @@ namespace ZZT.Mapper
                     //两者没有配置映射关系，则只映射类型且名称相同的字段
                     PropertyInfo[] props= desType.GetProperties();
                     Parallel.ForEach(props, (item) => {
-                        if(desType.GetProperty(item.Name).GetType()== sourceType.GetProperty(item.Name).GetType())
+                        var desPro = desType.GetProperty(item.Name);
+                        var sourcePro = sourceType.GetProperty(item.Name);
+                        if (desPro!=null&&sourcePro!=null&&desPro.GetType()==sourcePro.GetType())
                         {
                             desType.GetProperty(item.Name).SetValue(dins, sourceType.GetProperty(item.Name).GetValue(obj));
                         }
